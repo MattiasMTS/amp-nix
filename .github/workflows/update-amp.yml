@@ -1,0 +1,100 @@
+name: Update Amp Version
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for updates
+        id: check
+        run: |
+          set +e
+          ./scripts/update.sh --check
+          status=$?
+          set -e
+
+          if [ "$status" -eq 0 ]; then
+            echo "update_needed=false" >> "$GITHUB_OUTPUT"
+          elif [ "$status" -eq 1 ]; then
+            current=$(sed -n 's/.*version = "\([^"]*\)".*/\1/p' package.nix | head -1)
+            latest=$(curl -fsSL https://static.ampcode.com/cli/cli-version.txt)
+            echo "current=$current" >> "$GITHUB_OUTPUT"
+            echo "latest=$latest" >> "$GITHUB_OUTPUT"
+            echo "update_needed=true" >> "$GITHUB_OUTPUT"
+          else
+            exit "$status"
+          fi
+
+      - name: Update version and hashes
+        if: steps.check.outputs.update_needed == 'true'
+        run: ./scripts/update.sh --version "${{ steps.check.outputs.latest }}"
+
+      - name: Create Pull Request
+        if: steps.check.outputs.update_needed == 'true'
+        id: create-pr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update amp-cli to ${{ steps.check.outputs.latest }}"
+          title: "chore: update amp-cli to ${{ steps.check.outputs.latest }}"
+          body: |
+            ## Automated Amp update
+
+            Updates `amp-cli` from `${{ steps.check.outputs.current }}` to `${{ steps.check.outputs.latest }}`.
+
+            ### Changes
+            - Updated `version` in `package.nix`
+            - Updated per-platform binary hashes
+
+            ### Verification
+            - `nix build .#amp-cli`
+            - `./result/bin/amp --version`
+          branch: update-amp-${{ steps.check.outputs.latest }}
+          delete-branch: true
+          labels: |
+            dependencies
+            automated
+
+      - name: Enable auto-merge
+        if: steps.check.outputs.update_needed == 'true' && steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr merge ${{ steps.create-pr.outputs.pull-request-number }} --auto --squash --delete-branch
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Update Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.check.outputs.update_needed }}" = "true" ]; then
+            echo "- **Current Version:** ${{ steps.check.outputs.current }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Latest Version:** ${{ steps.check.outputs.latest }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ Pull request created." >> "$GITHUB_STEP_SUMMARY"
+          else
+            current=$(sed -n 's/.*version = "\([^"]*\)".*/\1/p' package.nix | head -1)
+            echo "- **Current Version:** $current" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ Already up to date." >> "$GITHUB_STEP_SUMMARY"
+          fi
