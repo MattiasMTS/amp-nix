@@ -27,7 +27,7 @@ let
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "amp-cli";
-  version = "0.0.1787810366-g2503d7";
+  version = "0.0.1789257698-g25321c";
 
   src = finalAttrs.passthru.sources.${stdenvNoCC.hostPlatform.system};
 
@@ -80,10 +80,10 @@ stdenvNoCC.mkDerivation (finalAttrs: {
         url = "https://static.ampcode.com/cli/${finalAttrs.version}/amp-${platform}.gz";
         hash =
           {
-            x86_64-linux = "sha256-X9NkyyRN7wrRM82CbiejhAzpxcoOsSS+6bTZPXFt3oY=";
-            aarch64-linux = "sha256-PoESg4RNTVpK0vpXXz+ttI8P6zGklgQ2NR/AuHH3A5M=";
-            x86_64-darwin = "sha256-0uCeVfrEmkaE3uB/tzcq2e3zZHPrcVPnyXDYRgAsd5g=";
-            aarch64-darwin = "sha256-J1yG/35utyaWgfMJIWYplkqZK4N5udC7RFJ4Fa6LFsw=";
+            x86_64-linux = "sha256-/VNXMXfrt9wO6L4mfwSsAPwMxi9Yuq+x2TWm7OXBhEU=";
+            aarch64-linux = "sha256-qfFg9JSKXRFUcuHRZxOfNstnvKDZJ9pgQVFG4bbWqO4=";
+            x86_64-darwin = "sha256-1DZZHkUCtchG1Kypnqvy3lfcdQev6lIPvbDcZ1BL+G8=";
+            aarch64-darwin = "sha256-AUyNAXnpQUb2pALv6TI0zZ4ZZ8C6R5IQPuqBIQH2b6k=";
           }
           .${system'};
       }
